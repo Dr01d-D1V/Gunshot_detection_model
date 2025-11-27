@@ -20,7 +20,7 @@ from pathlib import Path
 import librosa
 import numpy as np
 import tensorflow as tf
-
+from datetime import datetime
 
 # ---------------------------------------------------------------------------
 # Preprocessing (must match training pipeline in feature_extraction.ipynb)
@@ -155,6 +155,9 @@ def main() -> None:
     project_root = Path(__file__).resolve().parent.parent
     default_model_dir = project_root / "models"
     default_test_dir = project_root / "data" / "test_samples"
+    log_dir = project_root / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / f"test_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
 
     parser = argparse.ArgumentParser(description="Test gunshot detection model.")
     parser.add_argument(
@@ -178,38 +181,56 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    model_path = args.model or find_latest_model(default_model_dir)
-    print(f"Loading model: {model_path}")
-    model = tf.keras.models.load_model(model_path)
+    log_file = log_path.open("w", encoding="utf-8")
 
-    audio_files = collect_audio_files(args.audio)
-    if not audio_files:
-        print(f"No audio files found in {args.audio}")
-        sys.exit(1)
+    def log_print(message: str) -> None:
+        print(message)
+        log_file.write(message + "\n")
+        
 
-    print(f"Testing {len(audio_files)} audio file(s) with threshold={args.threshold}\n")
+    try:
+        model_path = args.model or find_latest_model(default_model_dir)
+        # print(f"Loading model: {model_path}")
+        log_print(f"Loading model: {model_path}")
+        model = tf.keras.models.load_model(model_path)
 
-    total_detections = 0
-    for audio_path in audio_files:
-        print(f"─── {audio_path.name} ───")
-        detections = sliding_window_inference(audio_path, model, args.threshold)
-        if detections:
-            for det in detections:
-                # print(
-                #     f"  Gunshot detected: {det['start_sec']:.1f}s – {det['end_sec']:.1f}s "
-                #     f"(confidence: {det['confidence']:.2%})"
-                # )
-                print(
-                    f"  Gunshot detected: At { (det['start_sec']/60):.2f} minutes " if det['start_sec'] > 60 else f"  Gunshot detected: At {det['start_sec']:.1f} seconds "
-                    f" Lasted for { (det['end_sec'] - det['start_sec']):.1f} seconds "
-                    f"(confidence: {det['confidence']:.2%})"
-                )
-            total_detections += len(detections)
-        else:
-            print("  No gunshots detected.")
-        print()
+        audio_files = collect_audio_files(args.audio)
+        if not audio_files:
+            print(f"No audio files found in {args.audio}")
+            sys.exit(1)
 
-    print(f"Total gunshot detections: {total_detections}")
+    # print(f"Testing {len(audio_files)} audio file(s) with threshold={args.threshold}\n")
+        log_print(f"Testing {len(audio_files)} audio file(s) with threshold={args.threshold}\n")
+
+        total_detections = 0
+        for audio_path in audio_files:
+            log_print(f"─── {audio_path.name} ───")
+            detections = sliding_window_inference(audio_path, model, args.threshold)
+            if detections:
+                for det in detections:
+                    duration = det["end_sec"] - det["start_sec"]
+                    if det["start_sec"] > 60:
+                        message = (
+                            f"  Gunshot detected: At {(det['start_sec'] / 60):.2f} minutes "
+                            f"Lasted {duration:.1f} seconds"
+                            f"(confidence: {det['confidence']:.2%})"
+                        )
+                    else:
+                        message = (
+                            f"  Gunshot detected: At {det['start_sec']:.1f} seconds "
+                            f"Lasted {duration:.1f} seconds "
+                            f"(confidence: {det['confidence']:.2%})"
+                        )
+                    log_print(message)
+                total_detections += len(detections)
+            else:
+                log_print("  No gunshots detected.")
+            log_print("")
+        
+        log_print(f"Testing complete. \nTotal gunshot detections: {total_detections}")
+        log_print(f"Log saved to: {log_path}")
+    finally:
+        log_file.close()
 
 
 if __name__ == "__main__":
