@@ -1,13 +1,16 @@
 import kagglehub
 import os
 import shutil
+from pathlib import Path
 
 # Create documents folder if it doesn't exist
-data_path = "/home/div/vsCode/Audio_classifier_Model/data"
+project_root = Path.cwd().resolve().parent
+data_path = project_root / "data"
 os.makedirs(data_path, exist_ok=True)
 
 # Move the UrbanSound8K dataset from the Kaggle cache into the project tree
 dataset_handle = "chrisfilo/urbansound8k"
+# dataset_handle = "emrahaydemr/gunshot-audio-dataset"
 dataset_name = dataset_handle.split("/")[-1]
 destination_path = os.path.join(data_path, dataset_name)
 final_path = destination_path
@@ -17,7 +20,7 @@ if os.path.exists(destination_path):
     final_path = destination_path
 else:
     cache_path = kagglehub.dataset_download(dataset_handle)
-# cache_path = "/home/div/.cache/kagglehub/datasets/chrisfilo/urbansound8k/versions/1"
+
 print("Dataset downloaded to:", cache_path)
 print(f"Moving dataset to documents folder: {destination_path}")
 shutil.move(cache_path, destination_path)

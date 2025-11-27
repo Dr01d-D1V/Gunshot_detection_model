@@ -167,6 +167,9 @@ data/*
 !data/description.txt
 !data/README.md
 
+models/*
+!models/description.txt
+
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
